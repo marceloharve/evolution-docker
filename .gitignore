@@ -1,0 +1,11 @@
+# Environment
+.env
+
+# Logs
+*.log
+logs/
+
+# Volumes (se mapear para host)
+data/
+instances/
+store/

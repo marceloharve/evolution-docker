@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL para persistência
+  postgresql:
+    image: postgres:16-alpine
+    container_name: chatmetric-postgresql
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme123}
+      POSTGRES_DB: evolution_api
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - evolution-network
+
+  # Redis para cache e filas
+  redis:
+    image: redis:7-alpine
+    container_name: chatmetric-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    networks:
+      - evolution-network
+
+  # Evolution API
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    container_name: chatmetric-evolution
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # Servidor
+      - SERVER_URL=http://56.125.195.27:8080
+      - SERVER_PORT=8080
+      
+      # Autenticação
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-sua-chave-secreta-aqui}
+      
+      # Database
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://postgres:${POSTGRES_PASSWORD:-changeme123}@postgresql:5432/evolution_api
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      
+      # Redis
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      
+      # Webhooks (DESABILITADOS globalmente - configurar por instância)
+      # ⚠️  WEBHOOK_GLOBAL_ENABLED=false evita loop infinito de instâncias órfãs
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+      
+      # QR Code
+      - QRCODE_LIMIT=30
+      - QRCODE_COLOR=#198754
+      
+      # ⚠️ CRÍTICO: Versão do WhatsApp Web (v2.2.3 requer isso para gerar QR)
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1023204200
+      
+      # Logs
+      - LOG_LEVEL=INFO
+      - LOG_COLOR=true
+      
+      # Instâncias
+      - DEL_INSTANCE=false
+      - DEL_TEMP_INSTANCES=true
+      
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    depends_on:
+      - postgresql
+      - redis
+    networks:
+      - evolution-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  postgresql_data:
+    driver: local
+  redis_data:
+    driver: local
+  evolution_instances:
+    driver: local
+  evolution_store:
+    driver: local
+
+networks:
+  evolution-network:
+    driver: bridge
