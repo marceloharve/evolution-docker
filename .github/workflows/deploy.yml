@@ -1,0 +1,23 @@
+name: Deploy Evolution
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{secrets.EC2_HOST}}
+          username: deploy
+          key: ${{secrets.EC2_SSH_KEY}}
+          script: |
+            cd ~/apps/chatmetric/evolution-docker
+            docker compose pull evolution-api
+            docker compose up -d evolution-api
+            docker image prune -f
